@@ -8,7 +8,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.n3r.core.security.BaseCryptor;
 import org.n3r.sensitive.parser.SensitiveFieldsParser;
 import org.slf4j.Logger;
@@ -28,9 +27,8 @@ public class PreparedStatementHandler implements InvocationHandler {
     }
 
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        if (ProxyMethods.requireEncrypt(method.getName()) &&
-                // TODO：limited原则/解耦
-                visitor.getSecuretBindIndice().contains(args[0]))
+        if (ProxyMethods.requireEncrypt(method.getName())
+                && visitor.inBindIndice((Integer) args[0]))
             try{
                 args[1] = cryptor.encrypt(args[1].toString());
             } catch(Exception e) {
@@ -40,8 +38,7 @@ public class PreparedStatementHandler implements InvocationHandler {
         Object result = method.invoke(pstmt, args);
 
         if (ProxyMethods.isGetResult(method.getName())
-             // TODO：limited原则/解耦
-                && CollectionUtils.isNotEmpty(visitor.getSecuretResultIndice())) {
+                && visitor.getSecuretResultIndice().size() > 0) {
             ResultSetHandler rsHandler = new ResultSetHandler((ResultSet) result, visitor, cryptor);
             return Proxy.newProxyInstance(getClass().getClassLoader(),
                     new Class<?>[] { ResultSet.class }, rsHandler);

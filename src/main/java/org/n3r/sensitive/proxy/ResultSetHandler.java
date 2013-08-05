@@ -25,11 +25,10 @@ public class ResultSetHandler implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         Object result = method.invoke(resultSet, args);
 
-        if (ProxyMethods.requireDecrypt(method.getName()) &&
-                (visitor.getSecuretResultIndice().contains(args[0])
-                        || visitor.getSecuretResultLabels().contains(args[0])))
+        if (ProxyMethods.requireDecrypt(method.getName())
+                && visitor.inResultIndice(args[0]))
             try {
-                result = cryptor.decrypt((String) result);
+                result = cryptor.decrypt(result.toString());
             } catch(Exception e) {
                 logger.warn("Decrypt result #{}# error", result);
             }
