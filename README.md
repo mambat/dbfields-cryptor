@@ -11,5 +11,5 @@
 * 对ResultSet进行动态代理，拦截getString/getObject方法，根据SQL解析结果决定是否解密
 
 # 测试用例
-* org.n3r.sensitive.parser.SensitiveFieldsVisitorTest  SQL解析测试用例
+* org.n3r.sensitive.parser.SensitiveFieldsParserTest  SQL解析测试用例
 * org.n3r.sensitive.proxy.SensitiveFieldsProxyTest  动态代理测试用例

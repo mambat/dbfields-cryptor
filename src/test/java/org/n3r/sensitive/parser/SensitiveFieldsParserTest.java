@@ -11,7 +11,7 @@ import org.n3r.sensitive.parser.SensitiveFieldsParser;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class SensitiveFieldsVisitorTest {
+public class SensitiveFieldsParserTest {
     @Test
     public void testQuery1() {
         String sql = "select d, f, a, b, c from table1 where c = ? and a = ? and b = ?";
