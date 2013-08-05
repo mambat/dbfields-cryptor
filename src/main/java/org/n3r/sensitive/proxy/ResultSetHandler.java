@@ -13,12 +13,12 @@ import org.slf4j.LoggerFactory;
 public class ResultSetHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(PreparedStatementHandler.class);
     private ResultSet resultSet;
-    private SensitiveFieldsParser visitor;
+    private SensitiveFieldsParser parser;
     private BaseCryptor cryptor;
 
-    public ResultSetHandler(ResultSet resultSet, SensitiveFieldsParser visitor, BaseCryptor cryptor) throws SQLException {
+    public ResultSetHandler(ResultSet resultSet, SensitiveFieldsParser parser, BaseCryptor cryptor) throws SQLException {
         this.resultSet = resultSet;
-        this.visitor = visitor;
+        this.parser = parser;
         this.cryptor = cryptor;
     }
 
@@ -26,7 +26,7 @@ public class ResultSetHandler implements InvocationHandler {
         Object result = method.invoke(resultSet, args);
 
         if (ProxyMethods.requireDecrypt(method.getName())
-                && visitor.inResultIndice(args[0]))
+                && parser.inResultIndice(args[0]))
             try {
                 result = cryptor.decrypt(result.toString());
             } catch(Exception e) {
