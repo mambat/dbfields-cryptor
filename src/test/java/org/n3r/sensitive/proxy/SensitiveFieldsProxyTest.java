@@ -282,17 +282,6 @@ public class SensitiveFieldsProxyTest {
 
             assertSame(preparedStatementHandler.getSensitiveFieldsParser(), preparedStatementHandler1.getSensitiveFieldsParser());
 
-            pstmt.setString(1, psptNo);
-            pstmt.execute();
-
-            // select and compare
-            pstmt = new PreparedStatementHandler(CONNECTION,
-                    "SELECT PSPT_NO FROM TF_B_ORDER_NETIN WHERE PSPT_NO = ?", cryptor).getPreparedStatement();
-            pstmt.setString(1, psptNo);
-            resultSet = pstmt.executeQuery();
-
-            if (resultSet.next())
-                Assert.fail("Delete is not work");
         } finally {
             if (pstmt != null)
                 pstmt.close();
@@ -300,6 +289,28 @@ public class SensitiveFieldsProxyTest {
                 resultSet.close();
         }
     }
+    @Test
+    public void testSQLErrorInSQLCache() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "DELETE FROMM TF_B_ORDER_NETIN " +
+                "WHERE PSPT_NO = ?";
+        PreparedStatement pstmt = null;
+        ResultSet resultSet = null;
+        try {
+            PreparedStatementHandler preparedStatementHandler = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+            pstmt = preparedStatementHandler.getPreparedStatement();
+            pstmt.setString(1, psptNo);
+            pstmt.execute();
+
+
+        } finally {
+            if (pstmt != null)
+                pstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+
     @Ignore("true")
     public void testEncryptEfficiency() throws SQLException {
         int loop = 100000;
