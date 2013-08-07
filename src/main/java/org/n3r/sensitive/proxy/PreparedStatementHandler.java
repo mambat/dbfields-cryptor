@@ -1,5 +1,14 @@
 package org.n3r.sensitive.proxy;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import org.apache.commons.collections.CollectionUtils;
+import org.n3r.core.security.BaseCryptor;
+import org.n3r.sensitive.parser.SensitiveFieldsParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -19,10 +28,21 @@ public class PreparedStatementHandler implements InvocationHandler {
     private SensitiveFieldsParser parser;
     private BaseCryptor cryptor;
 
+    public static CacheLoader<String, SensitiveFieldsParser> loader =
+            new CacheLoader<String, SensitiveFieldsParser>() {
+                @Override
+                public SensitiveFieldsParser load(String key) throws Exception {
+                    return SensitiveFieldsParser.parseSecuretFields(key);
+                }
+            };
+    public static LoadingCache<String, SensitiveFieldsParser> cache =
+            CacheBuilder.newBuilder()
+                    .build(loader);
+
     public PreparedStatementHandler(Connection connection, String sql, BaseCryptor cryptor) throws SQLException {
         this.pstmt = connection.prepareStatement(sql);
         // TODO：sql parse result cache
-        this.parser = SensitiveFieldsParser.parseSecuretFields(sql);
+        this.parser = cache.getUnchecked(sql);
         this.cryptor = cryptor;
     }
 
@@ -51,5 +71,10 @@ public class PreparedStatementHandler implements InvocationHandler {
         return (PreparedStatement) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[] { PreparedStatement.class }, this);
     }
+
+    public SensitiveFieldsParser getSensitiveFieldsParser() {
+        return parser;
+    }
+
 
 }
