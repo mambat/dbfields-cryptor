@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Calendar;
 
+import com.google.common.collect.Lists;
 import junit.framework.Assert;
 
 import org.junit.AfterClass;
@@ -15,6 +16,9 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.n3r.core.security.AesCryptor;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 public class SensitiveFieldsProxyTest {
     private final static String DRIVER_NAME = "oracle.jdbc.OracleDriver";
@@ -262,6 +266,40 @@ public class SensitiveFieldsProxyTest {
      * 10W -- 1.1413171 : 1
      * @throws SQLException
      */
+
+    @Test
+    public void testCache() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "DELETE FROM TF_B_ORDER_NETIN " +
+                "WHERE PSPT_NO = ?";
+        PreparedStatement pstmt = null;
+        ResultSet resultSet = null;
+        try {
+            PreparedStatementHandler preparedStatementHandler = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+            pstmt = preparedStatementHandler.getPreparedStatement();
+
+            PreparedStatementHandler preparedStatementHandler1 = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+
+            assertSame(preparedStatementHandler.getSensitiveFieldsParser(), preparedStatementHandler1.getSensitiveFieldsParser());
+
+            pstmt.setString(1, psptNo);
+            pstmt.execute();
+
+            // select and compare
+            pstmt = new PreparedStatementHandler(CONNECTION,
+                    "SELECT PSPT_NO FROM TF_B_ORDER_NETIN WHERE PSPT_NO = ?", cryptor).getPreparedStatement();
+            pstmt.setString(1, psptNo);
+            resultSet = pstmt.executeQuery();
+
+            if (resultSet.next())
+                Assert.fail("Delete is not work");
+        } finally {
+            if (pstmt != null)
+                pstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
     @Ignore("true")
     public void testEncryptEfficiency() throws SQLException {
         int loop = 100000;
