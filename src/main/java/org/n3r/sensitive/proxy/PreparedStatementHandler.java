@@ -1,9 +1,5 @@
 package org.n3r.sensitive.proxy;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import org.apache.commons.collections.CollectionUtils;
 import org.n3r.core.security.BaseCryptor;
 import org.n3r.sensitive.parser.SensitiveFieldsParser;
 import org.slf4j.Logger;
@@ -17,10 +13,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.n3r.core.security.BaseCryptor;
-import org.n3r.sensitive.parser.SensitiveFieldsParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PreparedStatementHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(PreparedStatementHandler.class);
@@ -28,23 +20,13 @@ public class PreparedStatementHandler implements InvocationHandler {
     private SensitiveFieldsParser parser;
     private BaseCryptor cryptor;
 
-    public static CacheLoader<String, SensitiveFieldsParser> loader =
-            new CacheLoader<String, SensitiveFieldsParser>() {
-                @Override
-                public SensitiveFieldsParser load(String key) throws Exception {
-                    return SensitiveFieldsParser.parseSecuretFields(key);
-                }
-            };
-    public static LoadingCache<String, SensitiveFieldsParser> cache =
-            CacheBuilder.newBuilder()
-                    .build(loader);
-
     public PreparedStatementHandler(Connection connection, String sql, BaseCryptor cryptor) throws SQLException {
+        this.parser = CacheUtil.getParser(sql);
         this.pstmt = connection.prepareStatement(sql);
-        // TODO：sql parse result cache
-        this.parser = cache.getUnchecked(sql);
+
         this.cryptor = cryptor;
     }
+
 
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (ProxyMethods.requireEncrypt(method.getName())
@@ -68,6 +50,8 @@ public class PreparedStatementHandler implements InvocationHandler {
     }
 
     public PreparedStatement getPreparedStatement() {
+        if (!parser.haveSecureFields()) return pstmt;
+
         return (PreparedStatement) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[] { PreparedStatement.class }, this);
     }
