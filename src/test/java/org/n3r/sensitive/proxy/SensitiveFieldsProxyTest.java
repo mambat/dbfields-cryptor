@@ -47,10 +47,14 @@ public class SensitiveFieldsProxyTest {
 
         // create tables
         Statement create = null;
-        try{
+        try {
             create = CONNECTION.createStatement();
             create.execute("CREATE TABLE TF_B_ORDER_NETIN (PSPT_NO VARCHAR2(128), PSPT_TYPE_CODE VARCHAR2(2), UPDATETIME DATE)");
             create.execute("CREATE TABLE TF_B_ORDER (ORDER_ID VARCHAR2(128), PSPT_NO VARCHAR2(128))");
+            create.execute("create or replace procedure prc_Test1(encryptPsptNo1 in varchar2,p_out out varchar2) is \n" +
+                    "begin\n" +
+                    "    p_out := encryptPsptNo1;  \n" +
+                    "end prc_Test1;");
         } finally {
             if (create != null)
                 create.close();
@@ -64,10 +68,11 @@ public class SensitiveFieldsProxyTest {
             return;
 
         Statement create = null;
-        try{
+        try {
             create = CONNECTION.createStatement();
             create.execute("DROP TABLE TF_B_ORDER_NETIN");
             create.execute("DROP TABLE TF_B_ORDER");
+            create.execute("DROP PROCEDURE prc_Test1");
         } finally {
             if (create != null)
                 create.close();
@@ -169,14 +174,14 @@ public class SensitiveFieldsProxyTest {
     @Test
     public void testMerge() throws SQLException {
         String sql = "MERGE INTO TF_B_ORDER_NETIN N " +
-                     "USING TF_B_ORDER R " +
-                     "ON (R.PSPT_NO = N.PSPT_NO) " +
-                     "WHEN MATCHED THEN " +
-                     "UPDATE SET " +
-                     "N.PSPT_TYPE_CODE = ? " +
-                     "WHEN NOT MATCHED THEN " +
-                     "INSERT(PSPT_NO, PSPT_TYPE_CODE, UPDATETIME) " +
-                     "VALUES(?, ?, sysdate)";
+                "USING TF_B_ORDER R " +
+                "ON (R.PSPT_NO = N.PSPT_NO) " +
+                "WHEN MATCHED THEN " +
+                "UPDATE SET " +
+                "N.PSPT_TYPE_CODE = ? " +
+                "WHEN NOT MATCHED THEN " +
+                "INSERT(PSPT_NO, PSPT_TYPE_CODE, UPDATETIME) " +
+                "VALUES(?, ?, sysdate)";
 
         PreparedStatement pstmt = null;
         ResultSet resultSet = null;
@@ -282,73 +287,10 @@ public class SensitiveFieldsProxyTest {
                 resultSet.close();
         }
     }
-    @Test
-    public void callableTest() throws SQLException {
-        String psptNo = insertOrderNetIn();
-        String sql = "{ call prc_Test(?, ?) }";
-        //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
-        //"WHERE PSPT_NO = ?";
-        CallableStatement cstmt = null;
-        ResultSet resultSet = null;
-        try {
-            // select (use encrypted psptNo) and compare
-            String encryptPsptNo = cryptor.encrypt(psptNo);
-            CONNECTION.setAutoCommit(false);
-            cstmt = CONNECTION.prepareCall(sql);
-            cstmt.setString(1, encryptPsptNo);
-            cstmt.registerOutParameter(2, OracleTypes.CURSOR);
-            cstmt.execute();
-            CONNECTION.commit();
-            resultSet = (ResultSet) cstmt.getObject(2);
-            System.out.println(encryptPsptNo);
-            if (resultSet.next())
-                Assert.assertEquals(encryptPsptNo, resultSet.getString(1));
-            else
-                Assert.fail("ResultSet is empty！");
-        } finally {
-            if (cstmt != null)
-                cstmt.close();
-            if (resultSet != null)
-                resultSet.close();
-        }
-    }
-
-    @Test
-    public void callableTest1() throws SQLException {
-        String psptNo = insertOrderNetIn();
-        String sql = "{ call prc_Test(?, ?) }";
-        //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
-        //"WHERE PSPT_NO = ?";
-        CallableStatement cstmt = null;
-        ResultSet resultSet = null;
-
-        try {
-            // select (use encrypted psptNo) and compare
-            String encryptPsptNo = cryptor.encrypt(psptNo);
-            CONNECTION.setAutoCommit(false);
-            CallableStatementHandler callableStatementHandler = new CallableStatementHandler(CONNECTION, sql, cryptor);
-            cstmt = callableStatementHandler.getCallableStatement();
-            cstmt.setString(1, encryptPsptNo);
-            cstmt.registerOutParameter(2, OracleTypes.CURSOR);
-            cstmt.execute();
-            CONNECTION.commit();
-            resultSet = (ResultSet) cstmt.getObject(2);
-            System.out.println(encryptPsptNo);
-            if (resultSet.next())
-                Assert.assertEquals(encryptPsptNo, resultSet.getString(1));
-            else
-                Assert.fail("ResultSet is empty！");
-        } finally {
-            if (cstmt != null)
-                cstmt.close();
-            if (resultSet != null)
-                resultSet.close();
-        }
-    }
 
 
     @Test
-    public void callableTest2() throws SQLException {
+    public void testProcedure() throws SQLException {
         String psptNo = insertOrderNetIn();
         String sql = "{ call prc_Test1(?, ?) }";
         //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
