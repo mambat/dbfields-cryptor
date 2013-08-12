@@ -1,20 +1,17 @@
 package org.n3r.sensitive.proxy;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Calendar;
-
 import junit.framework.Assert;
-
+import oracle.jdbc.OracleTypes;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.n3r.core.security.AesCryptor;
+
+import java.sql.*;
+import java.util.Calendar;
+
+import static org.junit.Assert.assertSame;
 
 public class SensitiveFieldsProxyTest {
     private final static String DRIVER_NAME = "oracle.jdbc.OracleDriver";
@@ -50,10 +47,14 @@ public class SensitiveFieldsProxyTest {
 
         // create tables
         Statement create = null;
-        try{
+        try {
             create = CONNECTION.createStatement();
             create.execute("CREATE TABLE TF_B_ORDER_NETIN (PSPT_NO VARCHAR2(128), PSPT_TYPE_CODE VARCHAR2(2), UPDATETIME DATE)");
             create.execute("CREATE TABLE TF_B_ORDER (ORDER_ID VARCHAR2(128), PSPT_NO VARCHAR2(128))");
+            create.execute("create or replace procedure prc_Test1(encryptPsptNo1 in varchar2,p_out out varchar2) is \n" +
+                    "begin\n" +
+                    "    p_out := encryptPsptNo1;  \n" +
+                    "end prc_Test1;");
         } finally {
             if (create != null)
                 create.close();
@@ -67,10 +68,11 @@ public class SensitiveFieldsProxyTest {
             return;
 
         Statement create = null;
-        try{
+        try {
             create = CONNECTION.createStatement();
             create.execute("DROP TABLE TF_B_ORDER_NETIN");
             create.execute("DROP TABLE TF_B_ORDER");
+            create.execute("DROP PROCEDURE prc_Test1");
         } finally {
             if (create != null)
                 create.close();
@@ -172,14 +174,14 @@ public class SensitiveFieldsProxyTest {
     @Test
     public void testMerge() throws SQLException {
         String sql = "MERGE INTO TF_B_ORDER_NETIN N " +
-                     "USING TF_B_ORDER R " +
-                     "ON (R.PSPT_NO = N.PSPT_NO) " +
-                     "WHEN MATCHED THEN " +
-                     "UPDATE SET " +
-                     "N.PSPT_TYPE_CODE = ? " +
-                     "WHEN NOT MATCHED THEN " +
-                     "INSERT(PSPT_NO, PSPT_TYPE_CODE, UPDATETIME) " +
-                     "VALUES(?, ?, sysdate)";
+                "USING TF_B_ORDER R " +
+                "ON (R.PSPT_NO = N.PSPT_NO) " +
+                "WHEN MATCHED THEN " +
+                "UPDATE SET " +
+                "N.PSPT_TYPE_CODE = ? " +
+                "WHEN NOT MATCHED THEN " +
+                "INSERT(PSPT_NO, PSPT_TYPE_CODE, UPDATETIME) " +
+                "VALUES(?, ?, sysdate)";
 
         PreparedStatement pstmt = null;
         ResultSet resultSet = null;
@@ -262,6 +264,61 @@ public class SensitiveFieldsProxyTest {
      * 10W -- 1.1413171 : 1
      * @throws SQLException
      */
+
+    @Test
+    public void testCache() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "DELETE FROM TF_B_ORDER_NETIN " +
+                "WHERE PSPT_NO = ?";
+        PreparedStatement pstmt = null;
+        ResultSet resultSet = null;
+        try {
+            PreparedStatementHandler preparedStatementHandler = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+            pstmt = preparedStatementHandler.getPreparedStatement();
+
+            PreparedStatementHandler preparedStatementHandler1 = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+
+            assertSame(preparedStatementHandler.getSensitiveFieldsParser(), preparedStatementHandler1.getSensitiveFieldsParser());
+
+        } finally {
+            if (pstmt != null)
+                pstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+
+
+    @Test
+    public void testProcedure() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "{ call prc_Test1(?, ?) }";
+        //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
+        //"WHERE PSPT_NO = ?";
+        CallableStatement cstmt = null;
+        ResultSet resultSet = null;
+
+        try {
+            // select (use encrypted psptNo) and compare
+            String encryptPsptNo = cryptor.encrypt(psptNo);
+            CONNECTION.setAutoCommit(false);
+            CallableStatementHandler callableStatementHandler = new CallableStatementHandler(CONNECTION, sql, cryptor);
+            cstmt = callableStatementHandler.getCallableStatement();
+            cstmt.setString(1, psptNo);
+            cstmt.registerOutParameter(2, Types.VARCHAR);
+            cstmt.execute();
+            CONNECTION.commit();
+            String result = cstmt.getString(2);
+            System.out.println(encryptPsptNo);
+            Assert.assertEquals(encryptPsptNo, result);
+        } finally {
+            if (cstmt != null)
+                cstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+
     @Ignore("true")
     public void testEncryptEfficiency() throws SQLException {
         int loop = 100000;
