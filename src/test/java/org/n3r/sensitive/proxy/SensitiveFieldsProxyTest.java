@@ -1,16 +1,7 @@
 package org.n3r.sensitive.proxy;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Calendar;
-
-import com.google.common.collect.Lists;
 import junit.framework.Assert;
-
+import oracle.jdbc.OracleTypes;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
