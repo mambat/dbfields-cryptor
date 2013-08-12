@@ -1,5 +1,10 @@
 package org.n3r.sensitive.proxy;
 
+import org.n3r.core.security.BaseCryptor;
+import org.n3r.sensitive.parser.SensitiveFieldsParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -8,10 +13,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.n3r.core.security.BaseCryptor;
-import org.n3r.sensitive.parser.SensitiveFieldsParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PreparedStatementHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(PreparedStatementHandler.class);
@@ -20,11 +21,12 @@ public class PreparedStatementHandler implements InvocationHandler {
     private BaseCryptor cryptor;
 
     public PreparedStatementHandler(Connection connection, String sql, BaseCryptor cryptor) throws SQLException {
+        this.parser = CacheUtil.getParser(sql);
         this.pstmt = connection.prepareStatement(sql);
-        // TODO：sql parse result cache
-        this.parser = SensitiveFieldsParser.parseSecuretFields(sql);
+
         this.cryptor = cryptor;
     }
+
 
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (ProxyMethods.requireEncrypt(method.getName())
@@ -48,8 +50,15 @@ public class PreparedStatementHandler implements InvocationHandler {
     }
 
     public PreparedStatement getPreparedStatement() {
+        if (!parser.haveSecureFields()) return pstmt;
+
         return (PreparedStatement) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[] { PreparedStatement.class }, this);
     }
+
+    public SensitiveFieldsParser getSensitiveFieldsParser() {
+        return parser;
+    }
+
 
 }
