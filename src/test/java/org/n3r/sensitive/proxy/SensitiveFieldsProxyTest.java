@@ -1,20 +1,17 @@
 package org.n3r.sensitive.proxy;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Calendar;
-
 import junit.framework.Assert;
-
+import oracle.jdbc.OracleTypes;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.n3r.core.security.AesCryptor;
+
+import java.sql.*;
+import java.util.Calendar;
+
+import static org.junit.Assert.assertSame;
 
 public class SensitiveFieldsProxyTest {
     private final static String DRIVER_NAME = "oracle.jdbc.OracleDriver";
@@ -262,6 +259,124 @@ public class SensitiveFieldsProxyTest {
      * 10W -- 1.1413171 : 1
      * @throws SQLException
      */
+
+    @Test
+    public void testCache() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "DELETE FROM TF_B_ORDER_NETIN " +
+                "WHERE PSPT_NO = ?";
+        PreparedStatement pstmt = null;
+        ResultSet resultSet = null;
+        try {
+            PreparedStatementHandler preparedStatementHandler = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+            pstmt = preparedStatementHandler.getPreparedStatement();
+
+            PreparedStatementHandler preparedStatementHandler1 = new PreparedStatementHandler(CONNECTION, sql, cryptor);
+
+            assertSame(preparedStatementHandler.getSensitiveFieldsParser(), preparedStatementHandler1.getSensitiveFieldsParser());
+
+        } finally {
+            if (pstmt != null)
+                pstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+    @Test
+    public void callableTest() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "{ call prc_Test(?, ?) }";
+        //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
+        //"WHERE PSPT_NO = ?";
+        CallableStatement cstmt = null;
+        ResultSet resultSet = null;
+        try {
+            // select (use encrypted psptNo) and compare
+            String encryptPsptNo = cryptor.encrypt(psptNo);
+            CONNECTION.setAutoCommit(false);
+            cstmt = CONNECTION.prepareCall(sql);
+            cstmt.setString(1, encryptPsptNo);
+            cstmt.registerOutParameter(2, OracleTypes.CURSOR);
+            cstmt.execute();
+            CONNECTION.commit();
+            resultSet = (ResultSet) cstmt.getObject(2);
+            System.out.println(encryptPsptNo);
+            if (resultSet.next())
+                Assert.assertEquals(encryptPsptNo, resultSet.getString(1));
+            else
+                Assert.fail("ResultSet is empty！");
+        } finally {
+            if (cstmt != null)
+                cstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+
+    @Test
+    public void callableTest1() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "{ call prc_Test(?, ?) }";
+        //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
+        //"WHERE PSPT_NO = ?";
+        CallableStatement cstmt = null;
+        ResultSet resultSet = null;
+
+        try {
+            // select (use encrypted psptNo) and compare
+            String encryptPsptNo = cryptor.encrypt(psptNo);
+            CONNECTION.setAutoCommit(false);
+            CallableStatementHandler callableStatementHandler = new CallableStatementHandler(CONNECTION, sql, cryptor);
+            cstmt = callableStatementHandler.getCallableStatement();
+            cstmt.setString(1, encryptPsptNo);
+            cstmt.registerOutParameter(2, OracleTypes.CURSOR);
+            cstmt.execute();
+            CONNECTION.commit();
+            resultSet = (ResultSet) cstmt.getObject(2);
+            System.out.println(encryptPsptNo);
+            if (resultSet.next())
+                Assert.assertEquals(encryptPsptNo, resultSet.getString(1));
+            else
+                Assert.fail("ResultSet is empty！");
+        } finally {
+            if (cstmt != null)
+                cstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+
+
+    @Test
+    public void callableTest2() throws SQLException {
+        String psptNo = insertOrderNetIn();
+        String sql = "{ call prc_Test1(?, ?) }";
+        //"SELECT PSPT_NO FROM TF_B_ORDER_NETIN " +
+        //"WHERE PSPT_NO = ?";
+        CallableStatement cstmt = null;
+        ResultSet resultSet = null;
+
+        try {
+            // select (use encrypted psptNo) and compare
+            String encryptPsptNo = cryptor.encrypt(psptNo);
+            CONNECTION.setAutoCommit(false);
+            CallableStatementHandler callableStatementHandler = new CallableStatementHandler(CONNECTION, sql, cryptor);
+            cstmt = callableStatementHandler.getCallableStatement();
+            cstmt.setString(1, psptNo);
+            cstmt.registerOutParameter(2, Types.VARCHAR);
+            cstmt.execute();
+            CONNECTION.commit();
+            String result = cstmt.getString(2);
+            System.out.println(encryptPsptNo);
+            Assert.assertEquals(encryptPsptNo, result);
+        } finally {
+            if (cstmt != null)
+                cstmt.close();
+            if (resultSet != null)
+                resultSet.close();
+        }
+    }
+
     @Ignore("true")
     public void testEncryptEfficiency() throws SQLException {
         int loop = 100000;
