@@ -350,4 +350,9 @@ public class SensitiveFieldsParser extends OracleASTVisitorAdapter {
                 || getSecuretResultLabels().contains(index);
     }
 
+    public boolean haveSecureFields() {
+        return securetResultLabels.size() > 0
+                ||securetResultIndice.size() > 0
+                || securetBindIndice.size() > 0;
+    }
 }
