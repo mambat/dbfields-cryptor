@@ -1,22 +1,23 @@
 package org.n3r.sensitive.proxy;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
-import org.n3r.core.security.BaseCryptor;
 import org.n3r.sensitive.parser.SensitiveFieldsParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 public class ResultSetHandler implements InvocationHandler {
-    private static final Logger logger = LoggerFactory.getLogger(PreparedStatementHandler.class);
+    private Logger logger = LoggerFactory.getLogger(ResultSetHandler.class);
     private ResultSet resultSet;
     private SensitiveFieldsParser parser;
-    private BaseCryptor cryptor;
+    private SensitiveCryptor cryptor;
 
-    public ResultSetHandler(ResultSet resultSet, SensitiveFieldsParser parser, BaseCryptor cryptor) throws SQLException {
+    public ResultSetHandler(ResultSet resultSet, SensitiveFieldsParser parser,
+                            SensitiveCryptor cryptor) throws SQLException {
         this.resultSet = resultSet;
         this.parser = parser;
         this.cryptor = cryptor;
@@ -36,4 +37,8 @@ public class ResultSetHandler implements InvocationHandler {
         return result;
     }
 
+    public ResultSet getResultSet() {
+        return (ResultSet) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{ResultSet.class}, this);
+    }
 }
