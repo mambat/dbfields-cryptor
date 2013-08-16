@@ -1,7 +1,7 @@
 package org.n3r.sensitive.proxy;
 
 import junit.framework.Assert;
-import oracle.jdbc.OracleTypes;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
